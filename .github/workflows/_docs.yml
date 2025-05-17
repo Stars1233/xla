@@ -16,7 +16,7 @@ on:
         required: true
 jobs:
   build-docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     container:
       image: ${{ inputs.dev-image }}
@@ -68,4 +68,3 @@ jobs:
         git add . -v
         git diff --cached --exit-code || git commit -m "Update doc from commit ${{ github.sha }}"
         git push origin gh-pages
-      if: github.event_name == 'push'
