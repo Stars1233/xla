@@ -1,4 +1,4 @@
-# How to do DistributedDataParallel(DDP)
+# Distributed Data Parallel (DDP)
 
 This document shows how to use torch.nn.parallel.DistributedDataParallel
 in xla, and further describes its difference against the native xla data
@@ -118,7 +118,7 @@ def demo_basic(rank):
     loss_fn(outputs, labels).backward()
     optimizer.step()
     # xla specific API to execute the graph
-    xm.mark_step()
+    torch_xla.sync()
 
     cleanup()
 

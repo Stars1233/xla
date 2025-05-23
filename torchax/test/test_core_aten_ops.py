@@ -4,7 +4,7 @@ import unittest
 import torch
 from torchax import tensor
 
-from . import test_base
+from . import base_test_util
 from torch.utils import _pytree as pytree
 
 
@@ -4468,29 +4468,46 @@ class TestCoreAtenOps(unittest.TestCase):
         torch.randn((1, 2, 4, 8), dtype=torch.float16),
     )
     kwargs = dict()
-    run_export_and_compare(self, torch.einsum, args, kwargs, atol=1e-2,
-                           rtol=1e-2, check_dtype=True)
+    run_export_and_compare(
+        self,
+        torch.einsum,
+        args,
+        kwargs,
+        atol=1e-2,
+        rtol=1e-2,
+        check_dtype=True)
 
   def test_aten_einsum(self):
-    args = (
-        "bshd,bthd->bsht",
-        (torch.randn((1, 2, 4, 8), dtype=torch.float16),
-        torch.randn((1, 2, 4, 8), dtype=torch.float16),)
-    )
+    args = ("bshd,bthd->bsht", (
+        torch.randn((1, 2, 4, 8), dtype=torch.float16),
+        torch.randn((1, 2, 4, 8), dtype=torch.float16),
+    ))
     kwargs = dict()
-    run_export_and_compare(self, torch.ops.aten.einsum, args, kwargs, atol=1e-2,
-                           rtol=1e-2, check_dtype=True)
+    run_export_and_compare(
+        self,
+        torch.ops.aten.einsum,
+        args,
+        kwargs,
+        atol=1e-2,
+        rtol=1e-2,
+        check_dtype=True)
 
   def test_aten_linear(self):
     # with bias
     args = (
         torch.randn((2, 4), dtype=torch.float16),
         torch.randn((2, 4), dtype=torch.float16),
-        torch.randn((2, ), dtype=torch.float16),
+        torch.randn((2,), dtype=torch.float16),
     )
     kwargs = dict()
-    run_export_and_compare(self, torch.ops.aten.linear, args, kwargs, atol=1e-2,
-                           rtol=1e-2, check_dtype=True)
+    run_export_and_compare(
+        self,
+        torch.ops.aten.linear,
+        args,
+        kwargs,
+        atol=1e-2,
+        rtol=1e-2,
+        check_dtype=True)
 
     # without bias
     args = (
@@ -4498,9 +4515,15 @@ class TestCoreAtenOps(unittest.TestCase):
         torch.randn((2, 4), dtype=torch.float16),
     )
     kwargs = dict()
-    run_export_and_compare(self, torch.ops.aten.linear, args, kwargs, atol=1e-2,
-                           rtol=1e-2, check_dtype=True)
+    run_export_and_compare(
+        self,
+        torch.ops.aten.linear,
+        args,
+        kwargs,
+        atol=1e-2,
+        rtol=1e-2,
+        check_dtype=True)
 
 
 if __name__ == "__main__":
-  test_base.main()
+  base_test_util.main()

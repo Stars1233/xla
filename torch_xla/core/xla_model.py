@@ -15,6 +15,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch_xla
 from torch_xla import runtime
+from typing_extensions import deprecated
 import torch_xla.core.xla_env_vars as xenv
 import torch_xla.debug.metrics_saver as ms
 import torch_xla.utils.utils as xu
@@ -432,9 +433,9 @@ def all_reduce(
       Default: 1.0
     groups (list, optional): A list of list, representing the replica groups for
       the `all_reduce()` operation. Example: `[[0, 1, 2, 3], [4, 5, 6, 7]]`
-        defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
-        the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
-        all the replicas in it.
+      defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
+      the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
+      all the replicas in it.
     pin_layout (bool, optional): whether to pin the layout for this communication op.
       Layout pining can prevent potential data corruption when each process that
       participate in the communication has slightly different program, but it might
@@ -534,9 +535,9 @@ def all_gather(value: torch.Tensor,
       Default: 0
     groups (list, optional): A list of list, representing the replica groups for
       the `all_gather()` operation. Example: `[[0, 1, 2, 3], [4, 5, 6, 7]]`
-        defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
-        the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
-        all the replicas in it.
+      defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
+      the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
+      all the replicas in it.
     output (torch.Tensor): Optional output tensor.
     pin_layout (bool, optional): whether to pin the layout for this communication op.
       Layout pining can prevent potential data corruption when each process that
@@ -745,9 +746,9 @@ def all_to_all(value: torch.Tensor,
     split_count (int): The split count.
     groups (list, optional): A list of list, representing the replica groups for
       the `all_reduce()` operation. Example: `[[0, 1, 2, 3], [4, 5, 6, 7]]`
-        defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
-        the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
-        all the replicas in it.
+      defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
+      the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
+      all the replicas in it.
     pin_layout (bool, optional): whether to pin the layout for this communication op.
       Layout pining can prevent potential data corruption when each process that
       participate in the communication has slightly different program, but it might
@@ -1051,23 +1052,9 @@ def _run_step_closures() -> DeviceContext:
   return devctx
 
 
+@deprecated("Use torch_xla.sync instead")
 def mark_step(wait: bool = False, reset_scope: bool = True):
-  if xu.getenv_as('XLA_EMIT_STEPLOG', bool, False):
-    print(
-        'torch_xla.core.xla_model::mark_step\n',
-        end='',
-        file=sys.stderr,
-        flush=True)
-  torch_xla._XLAC._xla_step_marker(
-      torch_xla._XLAC._xla_get_default_device(), [],
-      wait=xu.getenv_as('XLA_SYNC_WAIT', bool, wait),
-      reset_scope=reset_scope)
-  # Only emit metrics from the first local device index, to avoid emitting the
-  # same values from different threads.
-  if is_master_ordinal():
-    ms.save_metrics()
-  devctx = _run_step_closures()
-  torch_xla._XLAC._set_all_reduce_token(devctx.device, None)
+  torch_xla.sync(wait, reset_scope)
 
 
 # TODO(lsy323): When `tensors` is empty, the some intermediate tensors will also be
@@ -1224,9 +1211,9 @@ def optimizer_step(optimizer: optim.Optimizer,
       `optimizer.step()` call.
     groups (list, optional): A list of list, representing the replica groups for
       the `all_reduce()` operation. Example: `[[0, 1, 2, 3], [4, 5, 6, 7]]`
-        defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
-        the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
-        all the replicas in it.
+      defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
+      the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
+      all the replicas in it.
     pin_layout (bool, optional): whether to pin the layout when reducing gradients.
       See `xm.all_reduce` for details.
 
@@ -1241,7 +1228,7 @@ def optimizer_step(optimizer: optim.Optimizer,
   reduce_gradients(optimizer, groups=groups, pin_layout=pin_layout)
   loss = optimizer.step(**optimizer_args)
   if barrier:
-    mark_step()
+    torch_xla.sync()
   return loss
 
 
@@ -1349,7 +1336,7 @@ def xla_rendezvous(payload: bytes = b'',
   `tag` is ignored except for logging.
 
   Uses XLA collective communication to communicate between replicas, so this
-  will sync the graph (`xm.mark_step`).
+  will sync the graph (`torch_xla.sync()`).
 
   Args:
     tag: Name of this rendezvous operation.
@@ -1365,7 +1352,7 @@ def xla_rendezvous(payload: bytes = b'',
     raise TypeError('`payload` must be bytes, not {}'.format(type(payload)))
 
   # Finish all execution of previous graphs to avoid recompilation
-  mark_step()
+  torch_xla.sync()
 
   device = xla_device()
 
@@ -1378,7 +1365,7 @@ def xla_rendezvous(payload: bytes = b'',
   sizes = all_gather(size)
 
   max_size = torch.max(sizes)
-  mark_step()
+  torch_xla.sync()
 
   # If all payloads are empty, return immediately to avoid more CPU transfers
   if max_size.item() < 1:
@@ -1392,7 +1379,7 @@ def xla_rendezvous(payload: bytes = b'',
   data_list = torch.split(raw_data, max_size)
 
   payloads = [d[:sz] for d, sz in zip(data_list, sizes.cpu())]
-  mark_step()
+  torch_xla.sync()
 
   return [bytes(p.cpu().tolist()) for p in payloads]
 
@@ -1581,4 +1568,4 @@ def broadcast_master_param(model: torch.nn.Module) -> None:
   parameters_and_buffers = list(
       itertools.chain(model.parameters(), model.buffers()))
   collective_broadcast(parameters_and_buffers)
-  mark_step()
+  torch_xla.sync()

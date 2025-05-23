@@ -19,7 +19,8 @@ from torch.testing._internal.common_dtype import (all_types_and_complex_and)
 # work. The randperm op generates a random tensor. Every iteration of the test
 # recompiles the randperm op thus generating a different random tensor which
 # makes the test non-deterministic. To force determinism, this test has to
-# call PyTorch/XLA mark_step() to materialize the tensor rather than recompile.
+# call PyTorch/XLA `torch_xla.sync()` to materialize the tensor rather than
+# recompile.
 class TestPythonOps(pytorch_test_base.XLATestBase):
 
   @dtypes(*all_types_and_complex_and(torch.half, torch.bfloat16))
@@ -27,10 +28,6 @@ class TestPythonOps(pytorch_test_base.XLATestBase):
     if dtype in self.unsupported_dtypes:
       raise unittest.SkipTest("Dtype {0} is unsupported by XLA".format(
           str(dtype)))
-    if dtype == torch.uint8:
-      raise unittest.SkipTest(
-          'TODO(https://github.com/pytorch/xla/issues/8799): Re-enable uint8 test'
-      )
 
     device = xm.xla_device()
     real_device_type = xm.xla_device_hw(str(xm.xla_device()))
@@ -68,7 +65,7 @@ class TestPythonOps(pytorch_test_base.XLATestBase):
           idx = idx.reshape(2, 2)
         out = torch.put(dst, idx, src, accumulate)
 
-        xm.mark_step()
+        torch_xla.sync()
 
         # out-place
         reference = ref_put(dst, idx, src, accumulate)
@@ -146,7 +143,7 @@ class TestPythonOps(pytorch_test_base.XLATestBase):
             idx = torch.repeat_interleave(idx, 2, dim=-1)
             idx = idx[..., ::2]
 
-          xm.mark_step()
+          torch_xla.sync()
 
           dest2 = dest.clone()
           dest.index_copy_(dim, idx, src)

@@ -10,6 +10,7 @@ import torch_xla
 import torch_xla.core.xla_env_vars as xenv
 import torch_xla.core.xla_model as xm
 import torch_xla.utils.utils as xu
+import torch_xla._internal.neuron as neuron
 import torch_xla._internal.utils as _utils
 import torch_xla._internal.tpu as tpu
 from torch_xla.experimental import plugins
@@ -228,7 +229,7 @@ def use_spmd(auto: Optional[bool] = False):
   devices. This means that those tensors would be replicated across the devices.
 
   Args:
-    auto (bool): Whether to enable the auto-sharding. Read 
+    auto (bool): Whether to enable the auto-sharding. Read
       https://github.com/pytorch/xla/blob/master/docs/spmd_advanced.md#auto-sharding
       for more detail
   """
@@ -277,6 +278,8 @@ def get_master_ip() -> str:
     master worker's IP address as a string."""
   if device_type() == 'TPU':
     return tpu.discover_master_worker_ip()
+  elif device_type() == "NEURON":
+    return neuron.get_master_worker_ip()
   raise RuntimeError(f'IP discovery not supported for device: {device_type()}')
 
 
@@ -299,7 +302,7 @@ def initialize_cache(path: str, readonly: bool = False):
 
 def get_num_cached_compilation_graph():
   """Returns the number of cached compilation graph hash.
-  
+
   When persistent cache is used, returns the number of in-memory cached
   compilation graph hash. When there is a look up in the persistent cache,
   it will look up the in-memory cache first, and if it is not found, it will
